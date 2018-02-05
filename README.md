@@ -12,7 +12,7 @@
     "threshold":30,
     "type":"iOS",// 项目类型  iOS Android
     "needCreateTask":false, // 新crash是否需要创建task
-    "flowTaskName":"FEIOS",// 项目在flow上的名字，开task需要
+    "flowTaskName":"FLOWPEO",// 项目在flow上的名字，开task需要
     "channels": [
       {
         "channelName": "平台业务",
@@ -30,7 +30,7 @@
     "members": [
       {
         "misID": "huagndawei@meituan.com",
-        "channelID": "MTBFoodPlugin",
+        "channelID": "FoodPlugin",
         "type": "rd"
       },
       {
@@ -77,7 +77,7 @@ def findFirstLevelUsers(self):
 """
 ```
 
-所以把json对象对应的字典变成实体类，不仅应该是Android和iOS中常见的操作，应该是所有语言都要有的特性。Python应该也不会例外，当时Python刚学，不熟啊，只好网上搜一搜
+所以把json对象对应的字典变成实体类，不仅应该是Android和iOS中常见的操作，应该是所有语言都要有的特性。Python应该也不会例外，but，Python刚学，不熟啊，只好网上搜一搜
 
 ## 2.网上搜索结论
 
@@ -106,10 +106,10 @@ load = json.loads(dump,object_hook = dict2object)
 
 ## 3.Python Json to Model
 
-这种框架在Android和iOS上是否泛滥，各种优缺点的框架都有。总的来说满足`代码侵入性低`、`易用性强`、`稳定性高`这三点的框架都是好框架。
+这种框架在Android和iOS上十分泛滥，各种优缺点的框架都有。总的来说满足`代码侵入性低`、`易用性强`、`稳定性高`这三点的框架都是好框架。
 
-* 代码代码侵入性低是指，不要让用户非得继承框架的某个BaseModel，不要让用添加或重写某种转换方法
-* 易用性是指让用户非常方便的描述一个对象成员所属类是哪个，对象数组成员中数组元素所属类是哪个。（这两个是所有框架都必须要的，因为无论框架做的再好都要让用户告诉程序这两信息）
+* 代码代码侵入性低是指，不要让用户非得继承框架中的某个BaseModel，不要让用户添加或重写某种转换方法
+* 易用性是指让用户非常方便的描述一个对象成员所属的类是哪个，对象数组成员中数组元素所属的类是哪个。（这两点，是所有框架都必须要的，因为无论框架做的再好都要让用户告诉程序这两个信息）
 * 稳定性是指，一个来自文件或网络的json格式是不确定的，框架要保证无论json里面是啥，程序都能正常运行，不崩溃，合理的告诉用户哪里有问题
 
 我写了一个叫JsonModel的小小框架，用法大概就如下这样。大家看看是不是满足上面三个特性
@@ -172,8 +172,8 @@ print(json.dumps(person.toKeyValue()))  # model to json
 
 ```
 
-用户通过修饰符对实体类进行修饰就行了，对用户代码的侵入性很低。如果用户想要更换解析框架只要把修饰去除就好了。用户通过可选的objectMap={}, listClassMap={}参数就可以对映射做出描述。
+用户通过修饰符对实体类进行修饰就行了，对用户代码的侵入性很低。如果用户想要更换解析框架只要把修饰去除就好了。通过可选的objectMap={}, listClassMap={}参数很简单就可以对映射做出描述。
 
-最后上代码：（代表不超过60行就搞定了，如果大家喜欢给个星星吧~）
+最后大家看代码吧，总共不超过60行就搞定了，如果大家喜欢给个星星吧~
 
-github链接（不在这里贴出来了，给自己github做个广告）
+github链接（https://github.com/hdw09/jsonmodel）
