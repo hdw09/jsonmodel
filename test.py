@@ -73,4 +73,66 @@ print(person.__dict__)
 print(json.dumps(person.toKeyValue()))  # model to json
 
 
+jsonListString = """[{
+    "car": {
+        "color": "red",
+        "registration_number": "ASDF777",
+        "engine_capacity": 5.0
+    },
+    "surname": "Bravo",
+    "name": "Johny",
+    "nickname": "hello",
+    "pets": [
+        {
+            "name": "Garfield"
+        },
+        {
+            "age": 9,
+            "name": "Dogmeat"
+        }
+    ]
+},{
+    "car": {
+        "color": "red",
+        "registration_number": "ASDF777",
+        "engine_capacity": 5.0
+    },
+    "surname": "Bravo",
+    "name": "Johny",
+    "nickname": "hello",
+    "pets": [
+        {
+            "name": "Garfield"
+        },
+        {
+            "age": 9,
+            "name": "Dogmeat"
+        }
+    ]
+},{
+    "car": {
+        "color": "red",
+        "registration_number": "ASDF777",
+        "engine_capacity": 5.0
+    },
+    "surname": "Bravo",
+    "name": "Johny",
+    "nickname": "hello",
+    "pets": [
+        {
+            "name": "Garfield"
+        },
+        {
+            "age": 9,
+            "name": "Dogmeat"
+        }
+    ]
+}]"""
+
+personList = Person.objectArrayFromJsonArray(json.loads(jsonListString))
+print(personList)
+print(json.dumps(personList[0].toKeyValue()))
+print(json.dumps(Person.objectArrayToJsonArray(personList)))
+
+
 

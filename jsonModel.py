@@ -1,11 +1,13 @@
-"""
-
-"""
+# ----------------------------------------------------------------------
+#  Copyright (c) 2018-2030, huang dawei, China. All rights reserved.
+#
+#  everyone can use this code for any purpose.
+# ----------------------------------------------------------------------
 
 
 def jsonModel(objectMap={}, listClassMap={}):
     """
-    it is very easy to use !
+    It is very easy to use !
     @jsonModel(objectMap={"car": Car}, listClassMap={"pets": Dog})
     or
     @jsonModel({"car": Car}, {"pets": Dog})
@@ -49,7 +51,30 @@ def jsonModel(objectMap={}, listClassMap={}):
                     tempDic[key] = self.__dict__[key]
             return tempDic
 
+        @classmethod
+        def objectArrayFromJsonArray(className, data):
+            """create model list by json list"""
+            tempList = []
+            if isinstance(data, list):
+                for item in data:
+                    obj = className()
+                    obj.fromJson(item)
+                    tempList.append(obj)
+            return tempList
+
+        @classmethod
+        def objectArrayToJsonArray(className, objectList):
+            """dump objectList to json keyValue list"""
+            tempList = []
+            for obj in objectList:
+                if isinstance(obj, className):
+                    tempList.append(obj.toKeyValue())
+            return tempList
+
         cls.fromJson = fromJson
         cls.toKeyValue = toKeyValue
+        cls.objectArrayFromJsonArray = objectArrayFromJsonArray
+        cls.objectArrayToJsonArray = objectArrayToJsonArray
+
         return cls
     return decorate
