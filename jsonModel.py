@@ -22,12 +22,16 @@ def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
 
         def __hack_init__(self, *args, **kwargs):
             # exclude self
-            expect_arg_count = __origin_init__.__code__.co_argcount - 1
+            input_count = len(args) + len(kwargs)
+            default_var_count = len(__origin_init__.__defaults__)
+            min_arg_count = __origin_init__.__code__.co_argcount - default_var_count - 1
+            max_arg_count = __origin_init__.__code__.co_argcount
             varnames = __origin_init__.__code__.co_varnames
             co_flags = __origin_init__.__code__.co_flags
             is_args = co_flags & 0b100 != 0
             is_kwargs = co_flags & 0b1000 != 0
 
+            # variable parameters unsupported, consider using `fromJson` in `__init__` directly
             if is_args and is_kwargs:
                 __origin_init__(self, *args, **kwargs)
                 return
@@ -39,21 +43,20 @@ def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
                 return
 
             # no extra json param
-            if expect_arg_count == (len(args) + len(kwargs)):
+            if input_count == min_arg_count:
                 __origin_init__(self, *args, **kwargs)
                 return
 
-            # extra json param or exception
-            if expect_arg_count + 1 == (len(args) + len(kwargs)):
-                # find json param in kwargs
-                json_key = None
+            # check extra json param or exception
+            if input_count == max_arg_count:
+                # lookup json param in kwargs
                 json_data = None
                 for (key, val) in kwargs.iteritems():
                     if key not in varnames:
-                        json_key = key
                         json_data = val
+                        kwargs.pop(key)
                         break
-                # find json param in args
+                # lookup json param in args
                 if not json_data and len(args) > 0:
                     json_data = args[-1]
                 # check json param type
@@ -61,19 +64,32 @@ def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
                     json_data = json.loads(json_data)
                 if not isinstance(json_data, dict):
                     raise Exception("[error] invalid parameter or json format, expect dict or json string")
+                __origin_init__(self, *args, **kwargs)
+                fromJson(self, json_data)
+                return
 
-                real_args = args
-                real_kwargs = kwargs
-                if json_key:
-                    real_kwargs.pop(json_key)
-                else:
-                    real_args = args[0:expect_arg_count]
-                __origin_init__(self, *real_args, **real_kwargs)
+            # lookup extra json param or exception
+            if min_arg_count < input_count < max_arg_count:
+                # lookup json param in kwargs
+                json_data = None
+                for (key, val) in kwargs.iteritems():
+                    if key not in varnames:
+                        json_data = val
+                        kwargs.pop(key)
+                        break
+                if not json_data:
+                    __origin_init__(self, *args, **kwargs)
+                    return
+                if isinstance(json_data, basestring):
+                    json_data = json.loads(json_data)
+                if not isinstance(json_data, dict):
+                    raise Exception("[error] invalid parameter or json format, expect dict or json string")
+                __origin_init__(self, *args, **kwargs)
                 fromJson(self, json_data)
                 return
 
             # incorrect param count
-            raise Exception("[error] invalid parameter count, expect " + str(expect_arg_count) + ", got " + str(len(args)))
+            raise Exception("[error] invalid parameter count, expect " + str(min_arg_count) + ", got " + str(len(args)))
 
         def fromJson(self, data):
             """ json key_value model"""
