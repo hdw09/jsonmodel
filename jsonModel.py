@@ -22,8 +22,10 @@ def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
 
         def __hack_init__(self, *args, **kwargs):
             # exclude self
-            input_count = len(args) + len(kwargs)
-            default_var_count = len(__origin_init__.__defaults__)
+            arg_length = 0 if not args else len(args)
+            kwargs_length = 0 if not kwargs else len(kwargs)
+            input_count = arg_length + kwargs_length
+            default_var_count = 0 if not __origin_init__.__defaults__ else len(__origin_init__.__defaults__)
             min_arg_count = __origin_init__.__code__.co_argcount - default_var_count - 1
             max_arg_count = __origin_init__.__code__.co_argcount
             varnames = __origin_init__.__code__.co_varnames
@@ -32,19 +34,13 @@ def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
             is_kwargs = co_flags & 0b1000 != 0
 
             # variable parameters unsupported, consider using `fromJson` in `__init__` directly
-            if is_args and is_kwargs:
-                __origin_init__(self, *args, **kwargs)
-                return
-            if is_args and not is_kwargs:
-                __origin_init__(self, *args)
-                return
-            if is_kwargs and not is_args:
-                __origin_init__(self, **kwargs)
+            if is_args or is_kwargs:
+                call_origin_init(self, *args, **kwargs)
                 return
 
             # no extra json param
             if input_count == min_arg_count:
-                __origin_init__(self, *args, **kwargs)
+                call_origin_init(self, *args, **kwargs)
                 return
 
             # check extra json param or exception
@@ -57,14 +53,14 @@ def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
                         kwargs.pop(key)
                         break
                 # lookup json param in args
-                if not json_data and len(args) > 0:
+                if not json_data and arg_length > 0:
                     json_data = args[-1]
                 # check json param type
                 if isinstance(json_data, basestring):
                     json_data = json.loads(json_data)
                 if not isinstance(json_data, dict):
                     raise Exception("[error] invalid parameter or json format, expect dict or json string")
-                __origin_init__(self, *args, **kwargs)
+                call_origin_init(self, *args, **kwargs)
                 fromJson(self, json_data)
                 return
 
@@ -78,18 +74,40 @@ def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
                         kwargs.pop(key)
                         break
                 if not json_data:
-                    __origin_init__(self, *args, **kwargs)
+                    call_origin_init(self, *args, **kwargs)
                     return
                 if isinstance(json_data, basestring):
                     json_data = json.loads(json_data)
                 if not isinstance(json_data, dict):
                     raise Exception("[error] invalid parameter or json format, expect dict or json string")
-                __origin_init__(self, *args, **kwargs)
+
+                call_origin_init(self, *args, **kwargs)
                 fromJson(self, json_data)
                 return
 
             # incorrect param count
-            raise Exception("[error] invalid parameter count, expect " + str(min_arg_count) + ", got " + str(len(args)))
+            raise Exception("[error] invalid parameter count, expect " + str(min_arg_count) + ", got " + str(arg_length))
+
+        def call_origin_init(self, *args, **kwargs):
+            co_flags = __origin_init__.__code__.co_flags
+            is_args = co_flags & 0b100 != 0
+            is_kwargs = co_flags & 0b1000 != 0
+            if is_args and is_kwargs:
+                __origin_init__(self, *args, **kwargs)
+                return
+            if is_args and not is_kwargs:
+                __origin_init__(self, *args)
+                return
+            if is_kwargs and not is_args:
+                __origin_init__(self, **kwargs)
+                return
+
+            varnames = __origin_init__.__code__.co_varnames
+            has_param = (len(varnames) > 1)
+            if has_param:
+                __origin_init__(self, *args, **kwargs)
+            else:
+                __origin_init__(self)
 
         def fromJson(self, data):
             """ json key_value model"""
