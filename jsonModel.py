@@ -4,8 +4,10 @@
 #  everyone can use this code for any purpose.
 # ----------------------------------------------------------------------
 
+import json
 
-def jsonModel(objectMap={}, listClassMap={}):
+
+def jsonModel(objectMap={}, listClassMap={}, customKeyMap={}):
     """
     It is very easy to use !
     @jsonModel(objectMap={"car": Car}, listClassMap={"pets": Dog})
@@ -14,41 +16,140 @@ def jsonModel(objectMap={}, listClassMap={}):
     or
     @jsonModel()
     """
+
     def decorate(cls):
+        __origin_init__ = None
+
+        def __hack_init__(self, *args, **kwargs):
+            # exclude self
+            arg_length = 0 if not args else len(args)
+            kwargs_length = 0 if not kwargs else len(kwargs)
+            input_count = arg_length + kwargs_length
+            default_var_count = 0 if not __origin_init__.__defaults__ else len(__origin_init__.__defaults__)
+            min_arg_count = __origin_init__.__code__.co_argcount - default_var_count - 1
+            max_arg_count = __origin_init__.__code__.co_argcount
+            varnames = __origin_init__.__code__.co_varnames
+            co_flags = __origin_init__.__code__.co_flags
+            is_args = co_flags & 0b100 != 0
+            is_kwargs = co_flags & 0b1000 != 0
+
+            # variable parameters unsupported, consider using `fromJson` in `__init__` directly
+            if is_args or is_kwargs:
+                call_origin_init(self, *args, **kwargs)
+                return
+
+            # no extra json param
+            if input_count == min_arg_count:
+                call_origin_init(self, *args, **kwargs)
+                return
+
+            # check extra json param or exception
+            if input_count == max_arg_count:
+                # lookup json param in kwargs
+                json_data = None
+                for (key, val) in kwargs.iteritems():
+                    if key not in varnames:
+                        json_data = val
+                        kwargs.pop(key)
+                        break
+                # lookup json param in args
+                if not json_data and arg_length > 0:
+                    json_data = args[-1]
+                # check json param type
+                if isinstance(json_data, basestring):
+                    json_data = json.loads(json_data)
+                if not isinstance(json_data, dict):
+                    raise Exception("[error] invalid parameter or json format, expect dict or json string")
+                call_origin_init(self, *args, **kwargs)
+                fromJson(self, json_data)
+                return
+
+            # lookup extra json param or exception
+            if min_arg_count < input_count < max_arg_count:
+                # lookup json param in kwargs
+                json_data = None
+                for (key, val) in kwargs.iteritems():
+                    if key not in varnames:
+                        json_data = val
+                        kwargs.pop(key)
+                        break
+                if not json_data:
+                    call_origin_init(self, *args, **kwargs)
+                    return
+                if isinstance(json_data, basestring):
+                    json_data = json.loads(json_data)
+                if not isinstance(json_data, dict):
+                    raise Exception("[error] invalid parameter or json format, expect dict or json string")
+
+                call_origin_init(self, *args, **kwargs)
+                fromJson(self, json_data)
+                return
+
+            # incorrect param count
+            raise Exception("[error] invalid parameter count, expect " + str(min_arg_count) + ", got " + str(arg_length))
+
+        def call_origin_init(self, *args, **kwargs):
+            co_flags = __origin_init__.__code__.co_flags
+            is_args = co_flags & 0b100 != 0
+            is_kwargs = co_flags & 0b1000 != 0
+            if is_args and is_kwargs:
+                __origin_init__(self, *args, **kwargs)
+                return
+            if is_args and not is_kwargs:
+                __origin_init__(self, *args)
+                return
+            if is_kwargs and not is_args:
+                __origin_init__(self, **kwargs)
+                return
+
+            varnames = __origin_init__.__code__.co_varnames
+            has_param = (len(varnames) > 1)
+            if has_param:
+                __origin_init__(self, *args, **kwargs)
+            else:
+                __origin_init__(self)
+
         def fromJson(self, data):
             """ json key_value model"""
             for key in self.__dict__:
-                if key in data:
-                    if isinstance(data[key], dict) and key in objectMap:
+                custom_key = key
+                if key in customKeyMap:
+                    custom_key = customKeyMap[key]
+                if custom_key in data:
+                    if isinstance(data[custom_key], dict) and key in objectMap:
                         obj = self.__dict__[key] = objectMap[key]()
-                        obj.fromJson(data[key])
-                    elif isinstance(data[key], (list, tuple)) and key in listClassMap:
+                        obj.fromJson(data[custom_key])
+                    elif isinstance(data[custom_key], (list, tuple)) and key in listClassMap:
                         tempList = []
-                        for item in data[key]:
+                        for item in data[custom_key]:
                             obj = listClassMap[key]()
                             obj.fromJson(item)
                             tempList.append(obj)
                         self.__dict__[key] = tempList
                     else:
-                        self.__dict__[key] = data[key]
+                        self.__dict__[key] = data[custom_key]
                 else:
-                    print("JsonModel log : " + key + " not in json data")
+                    print("JsonModel log : [" + key + " --> " + custom_key + "] not in json data")
 
         def toKeyValue(self):
             """ model to json key_value """
             tempDic = {}
             for key in self.__dict__:
+                custom_key = key
+                if key in customKeyMap:
+                    custom_key = customKeyMap[key]
+
                 if key in objectMap:
                     obj = self.__dict__[key]
-                    tempDic[key] = obj.toKeyValue()
+                    tempDic[custom_key] = obj.toKeyValue()
                 elif key in listClassMap:
                     tempList = []
                     for item in self.__dict__[key]:
                         obj = item.toKeyValue()
                         tempList.append(obj)
-                    tempDic[key] = tempList
+                    tempDic[custom_key] = tempList
                 else:
-                    tempDic[key] = self.__dict__[key]
+                    tempDic[custom_key] = self.__dict__[key]
             return tempDic
 
         @classmethod
@@ -71,10 +172,13 @@ def jsonModel(objectMap={}, listClassMap={}):
                     tempList.append(obj.toKeyValue())
             return tempList
 
+        __origin_init__ = cls.__init__
+        cls.__init__ = __hack_init__
         cls.fromJson = fromJson
         cls.toKeyValue = toKeyValue
         cls.objectArrayFromJsonArray = objectArrayFromJsonArray
         cls.objectArrayToJsonArray = objectArrayToJsonArray
 
         return cls
+
     return decorate
