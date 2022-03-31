@@ -5,7 +5,7 @@
 # ----------------------------------------------------------------------
 
 
-def jsonModel(objectMap={}, listClassMap={}):
+def jsonModel(objectMap={}, listClassMap={}, dictMap={}):
     """
     It is very easy to use !
     @jsonModel(objectMap={"car": Car}, listClassMap={"pets": Dog})
@@ -14,41 +14,66 @@ def jsonModel(objectMap={}, listClassMap={}):
     or
     @jsonModel()
     """
+
     def decorate(cls):
         def fromJson(self, data):
             """ json key_value model"""
             for key in self.__dict__:
-                if key in data:
-                    if isinstance(data[key], dict) and key in objectMap:
-                        obj = self.__dict__[key] = objectMap[key]()
-                        obj.fromJson(data[key])
-                    elif isinstance(data[key], (list, tuple)) and key in listClassMap:
-                        tempList = []
-                        for item in data[key]:
-                            obj = listClassMap[key]()
-                            obj.fromJson(item)
-                            tempList.append(obj)
-                        self.__dict__[key] = tempList
-                    else:
-                        self.__dict__[key] = data[key]
-                else:
+                tmpObject = data.get(key)
+                if tmpObject is None:
                     print("JsonModel log : " + key + " not in json data")
+                    continue
+
+                if isinstance(tmpObject, dict):
+                    if key in dictMap:
+                        objClass = dictMap[key]
+                        tmpDict = {}
+                        for k, v in tmpObject.items():
+                            obj = objClass()
+                            obj.fromJson(v)
+                            tmpDict[k] = obj
+                        self.__dict__[key] = tmpDict
+                        continue
+                    elif key in objectMap:
+                        obj = self.__dict__[key] = objectMap[key]()
+                        obj.fromJson(tmpObject)
+                        continue
+                elif isinstance(tmpObject, (list, tuple)) and key in listClassMap:
+                    tempList = []
+                    for item in tmpObject:
+                        obj = listClassMap[key]()
+                        obj.fromJson(item)
+                        tempList.append(obj)
+                    self.__dict__[key] = tempList
+                    continue
+                self.__dict__[key] = data[key]
+
 
         def toKeyValue(self):
             """ model to json key_value """
             tempDic = {}
             for key in self.__dict__:
-                if key in objectMap:
-                    obj = self.__dict__[key]
+                tmpObj = self.__dict__[key]
+                if tmpObj is None:
+                    continue
+
+                if key in dictMap:
+                    objDict = {}
+                    for k, v in tmpObj.items():
+                        objDict[k] = v.toKeyValue()
+                    tempDic[key] = objDict
+
+                elif key in objectMap:
+                    obj = tmpObj
                     tempDic[key] = obj.toKeyValue()
                 elif key in listClassMap:
                     tempList = []
-                    for item in self.__dict__[key]:
+                    for item in tmpObj:
                         obj = item.toKeyValue()
                         tempList.append(obj)
                     tempDic[key] = tempList
                 else:
-                    tempDic[key] = self.__dict__[key]
+                    tempDic[key] = tmpObj
             return tempDic
 
         @classmethod
@@ -77,4 +102,5 @@ def jsonModel(objectMap={}, listClassMap={}):
         cls.objectArrayToJsonArray = objectArrayToJsonArray
 
         return cls
+
     return decorate
